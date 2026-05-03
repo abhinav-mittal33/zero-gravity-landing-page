@@ -1,5 +1,4 @@
 import { useRef, useEffect, useMemo, Suspense, useCallback, useState } from 'react'
-import MobileLanding from './MobileLanding'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -247,10 +246,7 @@ function SpeakerOff() {
 }
 
 // ─── ROOT ────────────────────────────────────────────────
-// ── Detect mobile ONCE at module level (outside React) ───
-const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768
-
-// ── Desktop 3D scene ──────────────────────────────────────
+// ── 3D Scene ──────────────────────────────────────────────
 function DesktopScene({ soundOn, toggleSound }) {
   const cpRef       = useRef(new THREE.Vector3(999,999,0))
   const [hintVisible, setHintVisible] = useState(true)
@@ -331,7 +327,7 @@ function DesktopScene({ soundOn, toggleSound }) {
         </div>
       )}
 
-      <Canvas shadows camera={{position:[0,0,11.5],fov:42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1,2]} style={{position:'absolute',inset:0}}>
+      <Canvas shadows={window.innerWidth >= 768} camera={{position:[0,0, window.innerWidth < 768 ? 16 : 11.5],fov: window.innerWidth < 768 ? 55 : 42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1, window.devicePixelRatio]} style={{position:'absolute',inset:0}}>
         <color attach="background" args={['#DADADA']}/>
         <Lights/>
         <DecoSpheres cpRef={cpRef}/>
@@ -354,10 +350,6 @@ export default function ZeroGravityLanding() {
     }
     setSoundOn(p => !p)
   }, [])
-
-  if (IS_MOBILE) {
-    return <MobileLanding soundOn={soundOn} onSoundToggle={toggleSound} />
-  }
 
   return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
 }
