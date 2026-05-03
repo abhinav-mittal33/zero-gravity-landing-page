@@ -311,12 +311,31 @@ export default function ZeroGravityLanding() {
   // Audio - module level so it survives re-renders
   const lastHitMs = useRef(0)
 
-  const unlockAudio = useCallback(() => {
-    if (window.__ac) return
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    window.__ac = ctx
-    ctx.resume()
+  // Unlock audio on first ANY interaction — document level guaranteed by Chrome
+  useEffect(() => {
+    const unlock = () => {
+      if (window.__ac) return
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      window.__ac = ctx
+      ctx.resume().then(() => console.log('Audio ready'))
+      document.removeEventListener('click',    unlock)
+      document.removeEventListener('keydown',  unlock)
+      document.removeEventListener('touchstart',unlock)
+      document.removeEventListener('pointerdown',unlock)
+    }
+    document.addEventListener('click',     unlock)
+    document.addEventListener('keydown',   unlock)
+    document.addEventListener('touchstart',unlock)
+    document.addEventListener('pointerdown',unlock)
+    return () => {
+      document.removeEventListener('click',    unlock)
+      document.removeEventListener('keydown',  unlock)
+      document.removeEventListener('touchstart',unlock)
+      document.removeEventListener('pointerdown',unlock)
+    }
   }, [])
+
+  const unlockAudio = () => {} // kept for onPointerMove ref
 
   // Assign playHit directly - called from Body.update via cpRef
   cpRef.playHit = useCallback(() => {
