@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, Suspense, useCallback } from 'react'
+import { useRef, useEffect, useMemo, Suspense, useCallback, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -315,30 +315,14 @@ export default function ZeroGravityLanding() {
   const cpRef   = useRef(new THREE.Vector3(999,999,0))
   // Audio - module level so it survives re-renders
 
-  useEffect(() => {
-    // Create AudioContext immediately — Chrome allows it but starts suspended
-    // We resume it on first pointermove (mouse movement counts on desktop)
+  const [started, setStarted] = useState(false)
+
+  const handleStart = () => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     window.__ac = ctx
-
-    const tryResume = () => {
-      if (ctx.state !== 'running') {
-        ctx.resume().then(() => {
-          document.removeEventListener('pointermove', tryResume)
-          document.removeEventListener('pointerdown', tryResume)
-        })
-      }
-    }
-    // pointermove fires as soon as user moves mouse — no click needed
-    document.addEventListener('pointermove', tryResume)
-    document.addEventListener('pointerdown', tryResume)
-    return () => {
-      document.removeEventListener('pointermove', tryResume)
-      document.removeEventListener('pointerdown', tryResume)
-    }
-  }, [])
-
-  const unlockAudio = () => {}
+    ctx.resume()
+    setStarted(true)
+  }
 
   // Assign playHit directly - called from Body.update via cpRef
   cpRef.playHit = useCallback(() => {
@@ -367,8 +351,6 @@ export default function ZeroGravityLanding() {
         background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
         overflow:'hidden',cursor:'none',userSelect:'none',
       }}
-      onPointerMove={unlockAudio}
-      onPointerDown={unlockAudio}
     >
 
       {/* TOP TEXT */}
@@ -407,6 +389,38 @@ export default function ZeroGravityLanding() {
       }}>
         abhinavmittal33@gmail.com
       </div>
+
+      {/* Entry overlay — click unlocks audio, then disappears */}
+      {!started && (
+        <div
+          onClick={handleStart}
+          style={{
+            position:'absolute', inset:0, zIndex:100,
+            display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center',
+            cursor:'pointer',
+            background:'transparent',
+          }}
+        >
+          <div style={{
+            display:'flex', flexDirection:'column', alignItems:'center', gap:'12px',
+            padding:'32px 48px',
+            borderRadius:'50%',
+            border:'1.5px solid rgba(0,0,0,0.18)',
+            background:'rgba(255,255,255,0.12)',
+            backdropFilter:'blur(4px)',
+          }}>
+            <div style={{
+              fontFamily:'Georgia, serif',
+              fontSize:'clamp(0.85rem,1.2vw,1.05rem)',
+              color:'#1A1A1A',
+              letterSpacing:'0.06em',
+              textTransform:'uppercase',
+              opacity:0.7,
+            }}>click to enter</div>
+          </div>
+        </div>
+      )}
 
       <Canvas
         shadows
