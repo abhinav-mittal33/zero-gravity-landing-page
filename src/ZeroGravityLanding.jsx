@@ -22,8 +22,9 @@ class Body {
     )
     this.mass   = mass
     this.radius = radius
-    this.phase  = Math.random()*Math.PI*2
-    this.freq   = 0.18+Math.random()*0.22
+    this.phase   = Math.random()*Math.PI*2
+    this.freq    = 0.18+Math.random()*0.22
+    this._hitAt  = 0   // per-body sound cooldown
   }
 
   update(dt, t, cpRef, cR, all) {
@@ -43,7 +44,11 @@ class Body {
         this.angVel.x+=(Math.random()-0.5)*2.8/this.mass
         this.angVel.y+=(Math.random()-0.5)*2.8/this.mass
         this.angVel.z+=(Math.random()-0.5)*1.5/this.mass
-        if(cpRef.playHit) cpRef.playHit(f)
+        const nowMs = Date.now()
+        if(cpRef.playHit && nowMs - this._hitAt > 250) {
+          this._hitAt = nowMs
+          cpRef.playHit()
+        }
       }
     }
     // Gentle float
@@ -309,42 +314,37 @@ function Lights() {
 export default function ZeroGravityLanding() {
   const cpRef   = useRef(new THREE.Vector3(999,999,0))
   // Audio - module level so it survives re-renders
-  const lastHitMs = useRef(0)
 
-  // Unlock audio on first ANY interaction — document level guaranteed by Chrome
   useEffect(() => {
-    const unlock = () => {
-      if (window.__ac) return
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      window.__ac = ctx
-      ctx.resume().then(() => console.log('Audio ready'))
-      document.removeEventListener('click',    unlock)
-      document.removeEventListener('keydown',  unlock)
-      document.removeEventListener('touchstart',unlock)
-      document.removeEventListener('pointerdown',unlock)
+    // Create AudioContext immediately — Chrome allows it but starts suspended
+    // We resume it on first pointermove (mouse movement counts on desktop)
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    window.__ac = ctx
+
+    const tryResume = () => {
+      if (ctx.state !== 'running') {
+        ctx.resume().then(() => {
+          document.removeEventListener('pointermove', tryResume)
+          document.removeEventListener('pointerdown', tryResume)
+        })
+      }
     }
-    document.addEventListener('click',     unlock)
-    document.addEventListener('keydown',   unlock)
-    document.addEventListener('touchstart',unlock)
-    document.addEventListener('pointerdown',unlock)
+    // pointermove fires as soon as user moves mouse — no click needed
+    document.addEventListener('pointermove', tryResume)
+    document.addEventListener('pointerdown', tryResume)
     return () => {
-      document.removeEventListener('click',    unlock)
-      document.removeEventListener('keydown',  unlock)
-      document.removeEventListener('touchstart',unlock)
-      document.removeEventListener('pointerdown',unlock)
+      document.removeEventListener('pointermove', tryResume)
+      document.removeEventListener('pointerdown', tryResume)
     }
   }, [])
 
-  const unlockAudio = () => {} // kept for onPointerMove ref
+  const unlockAudio = () => {}
 
   // Assign playHit directly - called from Body.update via cpRef
   cpRef.playHit = useCallback(() => {
     const ctx = window.__ac
     if (!ctx) return
-    const now = Date.now()
-    if (now - lastHitMs.current < 60) return
-    lastHitMs.current = now
-    if (ctx.state === 'suspended') { ctx.resume(); return }
+    if (ctx.state !== 'running') return
     try {
       const o = ctx.createOscillator()
       const g = ctx.createGain()
