@@ -142,6 +142,8 @@ function MouseRing({cpRef}) {
   useEffect(()=>{
     // Mouse
     const onMove=e=>{
+      // Don't move ring if hovering over UI buttons
+      if (e.target && e.target.closest('button')) return
       const x=(e.clientX/size.width)*2-1
       const y=-(e.clientY/size.height)*2+1
       const v=new THREE.Vector3(x,y,0.5).unproject(camera)
@@ -266,7 +268,7 @@ function DesktopScene({ soundOn, toggleSound }) {
   }, [])
 
   cpRef.playHit = useCallback(() => {
-    if (!soundOn) return
+    if (!window.__soundOn) return
     const ctx = window.__ac
     if (!ctx) return
     if (ctx.state === 'suspended') ctx.resume()
@@ -293,7 +295,7 @@ function DesktopScene({ soundOn, toggleSound }) {
       g3.gain.setValueAtTime(0.12,t); g3.gain.exponentialRampToValueAtTime(0.001,t+0.08)
       src.start(t); src.stop(t+0.09)
     } catch(e) {}
-  }, [soundOn])
+  }, [])
 
   const handleStart = useCallback(() => { cpRef.active = true }, [])
 
@@ -302,7 +304,7 @@ function DesktopScene({ soundOn, toggleSound }) {
       style={{
         position:'relative', width:'100vw', height:'100vh',
         background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
-        overflow:'hidden', cursor:'none', userSelect:'none',
+        overflow:'hidden', cursor:'default', userSelect:'none',
       }}
       onPointerDown={handleStart}
     >
@@ -328,7 +330,7 @@ function DesktopScene({ soundOn, toggleSound }) {
         </div>
       )}
 
-      <Canvas shadows={window.innerWidth >= 768} camera={{position:[0,0, window.innerWidth < 768 ? 16 : 11.5],fov: window.innerWidth < 768 ? 55 : 42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1, Math.min(window.devicePixelRatio, 2)]} style={{position:'absolute',inset:0}}>
+      <Canvas shadows={window.innerWidth >= 768} camera={{position:[0,0, window.innerWidth < 768 ? 16 : 11.5],fov: window.innerWidth < 768 ? 55 : 42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1, Math.min(window.devicePixelRatio, 2)]} style={{position:'absolute',inset:0,cursor:'none'}}>
         <color attach="background" args={['#DADADA']}/>
         <Lights/>
         <DecoSpheres cpRef={cpRef}/>
@@ -343,13 +345,16 @@ function DesktopScene({ soundOn, toggleSound }) {
 export default function ZeroGravityLanding() {
   const [soundOn, setSoundOn] = useState(false)
 
-  const toggleSound = useCallback(() => {
+  const toggleSound = useCallback((e) => {
+    e.stopPropagation()
+    // Create/resume AudioContext synchronously in this gesture handler
     if (!window.__ac) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      window.__ac = ctx
-      ctx.resume()
+      window.__ac = new (window.AudioContext || window.webkitAudioContext)()
     }
-    setSoundOn(p => !p)
+    window.__ac.resume()
+    // Toggle global flag — no React closure issues
+    window.__soundOn = !window.__soundOn
+    setSoundOn(window.__soundOn)
   }, [])
 
   return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
