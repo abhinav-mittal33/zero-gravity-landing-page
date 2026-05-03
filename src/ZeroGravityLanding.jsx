@@ -1,4 +1,5 @@
 import { useRef, useEffect, useMemo, Suspense, useCallback, useState } from 'react'
+import MobileLanding from './MobileLanding'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -255,6 +256,16 @@ export default function ZeroGravityLanding() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
   if (typeof window !== 'undefined') window.__mobile = isMobile
 
+  // Return mobile version entirely — pure CSS, zero WebGL
+  if (isMobile) {
+    return (
+      <MobileLanding
+        soundOn={soundOn}
+        onSoundToggle={toggleSound}
+      />
+    )
+  }
+
   // Audio init on first interaction
   const initAudio = useCallback(() => {
     if (window.__ac) return
@@ -312,9 +323,9 @@ export default function ZeroGravityLanding() {
 
   // Hide hint circle on first mouse movement
   useEffect(() => {
-    const hide = () => { setHintVisible(false); window.removeEventListener('mousemove', hide) }
-    window.addEventListener('mousemove', hide)
-    return () => window.removeEventListener('mousemove', hide)
+    const hide = () => { setHintVisible(false); window.removeEventListener('pointerdown', hide) }
+    window.addEventListener('pointerdown', hide)
+    return () => window.removeEventListener('pointerdown', hide)
   }, [])
 
   // Camera settings responsive
@@ -414,7 +425,7 @@ export default function ZeroGravityLanding() {
             color:'rgba(30,30,30,0.55)',
             letterSpacing:'0.08em',
             textTransform:'uppercase',
-          }}>move cursor</span>
+          }}>click</span>
         </div>
       )}
 
