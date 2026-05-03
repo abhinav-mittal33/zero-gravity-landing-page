@@ -4,65 +4,6 @@ import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 
 
-// ─── COLLISION SOUND ─────────────────────────────────────
-let _audioCtx = null
-let _audioReady = false
-let _lastHitTime = 0
-
-// Unlock audio on FIRST interaction of any kind
-function unlockAudio() {
-  if (_audioReady) return
-  _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-  _audioCtx.resume().then(() => { _audioReady = true })
-}
-
-// Call immediately — browsers allow AudioContext creation on first gesture
-// We attach to window so it fires on mousedown, click, touchstart
-if (typeof window !== 'undefined') {
-  const unlock = () => { unlockAudio(); window.removeEventListener('mousedown', unlock) }
-  window.addEventListener('mousedown', unlock)
-  // Also try on first mousemove (some browsers allow this)
-  const unlockMove = () => { unlockAudio(); window.removeEventListener('mousemove', unlockMove) }
-  window.addEventListener('mousemove', unlockMove)
-}
-
-function playHit(strength) {
-  if (!_audioReady || !_audioCtx) return
-  try {
-    const now = Date.now()
-    if (now - _lastHitTime < 60) return
-    _lastHitTime = now
-
-    const ctx  = _audioCtx
-    const osc  = ctx.createOscillator()
-    const gain = ctx.createGain()
-    const filt = ctx.createBiquadFilter()
-
-    // Punchier sound — less filtering, more attack
-    filt.type = 'lowpass'
-    filt.frequency.value = 800   // much more open than 200Hz
-    filt.Q.value = 1.2
-
-    osc.connect(filt); filt.connect(gain); gain.connect(ctx.destination)
-
-    const t   = ctx.currentTime
-    // Much louder — was 0.22 * strength, now flat 0.7
-    const vol = Math.min(0.55 + strength * 0.08, 0.75)
-
-    // Sharp attack, quick decay — satisfying thud
-    osc.type = 'triangle'  // triangle has more harmonics than sine = more audible
-    osc.frequency.setValueAtTime(180, t)
-    osc.frequency.exponentialRampToValueAtTime(55, t + 0.08)
-
-    gain.gain.setValueAtTime(0.001, t)
-    gain.gain.linearRampToValueAtTime(vol, t + 0.006)  // very fast attack
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
-
-    osc.start(t)
-    osc.stop(t + 0.20)
-  } catch(e) {}
-}
-
 // ─── PHYSICS ─────────────────────────────────────────────────────────────────
 class Body {
   constructor({ home, mass=1, radius=0.7 }) {
@@ -102,7 +43,7 @@ class Body {
         this.angVel.x+=(Math.random()-0.5)*2.8/this.mass
         this.angVel.y+=(Math.random()-0.5)*2.8/this.mass
         this.angVel.z+=(Math.random()-0.5)*1.5/this.mass
-        playHit(f * 0.042)
+        if(cpRef.playHit) cpRef.playHit(f)
       }
     }
     // Gentle float
@@ -366,13 +307,53 @@ function Lights() {
 
 // ─── ROOT ────────────────────────────────────────────────────────────────────
 export default function ZeroGravityLanding() {
-  const cpRef=useRef(new THREE.Vector3(999,999,0))
+  const cpRef   = useRef(new THREE.Vector3(999,999,0))
+  const actxRef = useRef(null)
+  const lastHit = useRef(0)
+
+  const unlockAudio = () => {
+    if (actxRef.current) return
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    actxRef.current = ctx
+  }
+
+  const playHit = () => {
+    const ctx = actxRef.current
+    if (!ctx) return
+    const now = Date.now()
+    if (now - lastHit.current < 65) return
+    lastHit.current = now
+    try {
+      if (ctx.state === 'suspended') ctx.resume()
+      const osc  = ctx.createOscillator()
+      const gain = ctx.createGain()
+      const bq   = ctx.createBiquadFilter()
+      bq.type = 'lowpass'; bq.frequency.value = 1200; bq.Q.value = 0.8
+      osc.connect(bq); bq.connect(gain); gain.connect(ctx.destination)
+      const t = ctx.currentTime
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(220, t)
+      osc.frequency.exponentialRampToValueAtTime(55, t + 0.1)
+      gain.gain.setValueAtTime(0.001, t)
+      gain.gain.linearRampToValueAtTime(0.85, t + 0.004)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
+      osc.start(t); osc.stop(t + 0.25)
+    } catch(e) {}
+  }
+
+  // Expose playHit via cpRef so Body.update can call it
+  cpRef.playHit = playHit
+
   return(
-    <div style={{
-      position:'relative',width:'100vw',height:'100vh',
-      background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
-      overflow:'hidden',cursor:'none',userSelect:'none',
-    }}>
+    <div
+      style={{
+        position:'relative',width:'100vw',height:'100vh',
+        background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
+        overflow:'hidden',cursor:'none',userSelect:'none',
+      }}
+      onPointerMove={unlockAudio}
+      onPointerDown={unlockAudio}
+    >
 
       {/* TOP TEXT */}
       <div style={{
