@@ -138,8 +138,8 @@ function Model({ path, bodyRef, scale=1, baseRot=[0,0,0] }) {
       n.material.needsUpdate=true
       // Fix z-fighting between layered faces
       n.material.polygonOffset = true
-      n.material.polygonOffsetFactor = -1
-      n.material.polygonOffsetUnits  = -1
+      n.material.polygonOffsetFactor = -4
+      n.material.polygonOffsetUnits  = -4
     })
     return c
   }, [scene])
@@ -245,7 +245,14 @@ function MouseRing({cpRef}) {
   const current=useRef(new THREE.Vector3(999,999,0))
   const {camera,size}=useThree()
   useEffect(()=>{
+    // Unlock AudioContext on first mouse interaction (browser policy)
+    let unlocked = false
     const onMove=e=>{
+      if (!unlocked) {
+        unlocked = true
+        if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        if (_audioCtx.state === 'suspended') _audioCtx.resume()
+      }
       const x=(e.clientX/size.width)*2-1
       const y=-(e.clientY/size.height)*2+1
       const v=new THREE.Vector3(x,y,0.5).unproject(camera)
