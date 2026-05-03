@@ -6,39 +6,60 @@ import * as THREE from 'three'
 
 // ─── COLLISION SOUND ─────────────────────────────────────
 let _audioCtx = null
+let _audioReady = false
 let _lastHitTime = 0
 
+// Unlock audio on FIRST interaction of any kind
+function unlockAudio() {
+  if (_audioReady) return
+  _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+  _audioCtx.resume().then(() => { _audioReady = true })
+}
+
+// Call immediately — browsers allow AudioContext creation on first gesture
+// We attach to window so it fires on mousedown, click, touchstart
+if (typeof window !== 'undefined') {
+  const unlock = () => { unlockAudio(); window.removeEventListener('mousedown', unlock) }
+  window.addEventListener('mousedown', unlock)
+  // Also try on first mousemove (some browsers allow this)
+  const unlockMove = () => { unlockAudio(); window.removeEventListener('mousemove', unlockMove) }
+  window.addEventListener('mousemove', unlockMove)
+}
+
 function playHit(strength) {
+  if (!_audioReady || !_audioCtx) return
   try {
     const now = Date.now()
-    if (now - _lastHitTime < 80) return  // 80ms global cooldown
+    if (now - _lastHitTime < 60) return
     _lastHitTime = now
 
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-    const ctx = _audioCtx
-    if (ctx.state === 'suspended') ctx.resume()
-
+    const ctx  = _audioCtx
     const osc  = ctx.createOscillator()
     const gain = ctx.createGain()
     const filt = ctx.createBiquadFilter()
 
+    // Punchier sound — less filtering, more attack
     filt.type = 'lowpass'
-    filt.frequency.value = 200
-    filt.Q.value = 0.6
+    filt.frequency.value = 800   // much more open than 200Hz
+    filt.Q.value = 1.2
 
     osc.connect(filt); filt.connect(gain); gain.connect(ctx.destination)
 
     const t   = ctx.currentTime
-    const vol = Math.min(strength * 0.22, 0.28)
+    // Much louder — was 0.22 * strength, now flat 0.7
+    const vol = Math.min(0.55 + strength * 0.08, 0.75)
 
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(100, t)
-    osc.frequency.exponentialRampToValueAtTime(35, t + 0.14)
+    // Sharp attack, quick decay — satisfying thud
+    osc.type = 'triangle'  // triangle has more harmonics than sine = more audible
+    osc.frequency.setValueAtTime(180, t)
+    osc.frequency.exponentialRampToValueAtTime(55, t + 0.08)
+
     gain.gain.setValueAtTime(0.001, t)
-    gain.gain.linearRampToValueAtTime(vol, t + 0.008)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+    gain.gain.linearRampToValueAtTime(vol, t + 0.006)  // very fast attack
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
 
-    osc.start(t); osc.stop(t + 0.25)
+    osc.start(t)
+    osc.stop(t + 0.20)
   } catch(e) {}
 }
 
@@ -245,14 +266,7 @@ function MouseRing({cpRef}) {
   const current=useRef(new THREE.Vector3(999,999,0))
   const {camera,size}=useThree()
   useEffect(()=>{
-    // Unlock AudioContext on first mouse interaction (browser policy)
-    let unlocked = false
     const onMove=e=>{
-      if (!unlocked) {
-        unlocked = true
-        if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-        if (_audioCtx.state === 'suspended') _audioCtx.resume()
-      }
       const x=(e.clientX/size.width)*2-1
       const y=-(e.clientY/size.height)*2+1
       const v=new THREE.Vector3(x,y,0.5).unproject(camera)
