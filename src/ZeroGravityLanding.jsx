@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, Suspense } from 'react'
+import { useRef, useEffect, useMemo, Suspense, useCallback } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -308,41 +308,38 @@ function Lights() {
 // ─── ROOT ────────────────────────────────────────────────────────────────────
 export default function ZeroGravityLanding() {
   const cpRef   = useRef(new THREE.Vector3(999,999,0))
-  const actxRef = useRef(null)
-  const lastHit = useRef(0)
+  // Audio - module level so it survives re-renders
+  const lastHitMs = useRef(0)
 
-  const unlockAudio = () => {
-    if (actxRef.current) return
+  const unlockAudio = useCallback(() => {
+    if (window.__ac) return
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    actxRef.current = ctx
-  }
+    window.__ac = ctx
+    ctx.resume()
+  }, [])
 
-  const playHit = () => {
-    const ctx = actxRef.current
+  // Assign playHit directly - called from Body.update via cpRef
+  cpRef.playHit = useCallback(() => {
+    const ctx = window.__ac
     if (!ctx) return
     const now = Date.now()
-    if (now - lastHit.current < 65) return
-    lastHit.current = now
+    if (now - lastHitMs.current < 60) return
+    lastHitMs.current = now
+    if (ctx.state === 'suspended') { ctx.resume(); return }
     try {
-      if (ctx.state === 'suspended') ctx.resume()
-      const osc  = ctx.createOscillator()
-      const gain = ctx.createGain()
-      const bq   = ctx.createBiquadFilter()
-      bq.type = 'lowpass'; bq.frequency.value = 1200; bq.Q.value = 0.8
-      osc.connect(bq); bq.connect(gain); gain.connect(ctx.destination)
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
       const t = ctx.currentTime
-      osc.type = 'triangle'
-      osc.frequency.setValueAtTime(220, t)
-      osc.frequency.exponentialRampToValueAtTime(55, t + 0.1)
-      gain.gain.setValueAtTime(0.001, t)
-      gain.gain.linearRampToValueAtTime(0.85, t + 0.004)
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22)
-      osc.start(t); osc.stop(t + 0.25)
-    } catch(e) {}
-  }
-
-  // Expose playHit via cpRef so Body.update can call it
-  cpRef.playHit = playHit
+      o.type = 'triangle'
+      o.frequency.setValueAtTime(300, t)
+      o.frequency.exponentialRampToValueAtTime(80, t + 0.12)
+      g.gain.setValueAtTime(0.0, t)
+      g.gain.linearRampToValueAtTime(1.0, t + 0.003)
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
+      o.start(t); o.stop(t + 0.28)
+    } catch(e) { console.error('audio err', e) }
+  }, [])
 
   return(
     <div
