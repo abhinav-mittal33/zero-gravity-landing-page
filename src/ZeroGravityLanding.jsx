@@ -247,48 +247,34 @@ function SpeakerOff() {
 }
 
 // ─── ROOT ────────────────────────────────────────────────
-export default function ZeroGravityLanding() {
-  const cpRef    = useRef(new THREE.Vector3(999,999,0))
-  const [soundOn, setSoundOn] = useState(false)
+// ── Detect mobile ONCE at module level (outside React) ───
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 768
+
+// ── Desktop 3D scene ──────────────────────────────────────
+function DesktopScene({ soundOn, toggleSound }) {
+  const cpRef       = useRef(new THREE.Vector3(999,999,0))
   const [hintVisible, setHintVisible] = useState(true)
 
-  // Detect mobile
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-  if (typeof window !== 'undefined') window.__mobile = isMobile
-
-  // Return mobile version entirely — pure CSS, zero WebGL
-  if (isMobile) {
-    return (
-      <MobileLanding
-        soundOn={soundOn}
-        onSoundToggle={toggleSound}
-      />
-    )
-  }
-
-  // Audio init on first interaction
-  const initAudio = useCallback(() => {
-    if (window.__ac) return
-    const ctx = new (window.AudioContext || window.webkitAudioContext)()
-    window.__ac = ctx
-    ctx.resume()
+  useEffect(() => {
+    const hide = () => { setHintVisible(false); window.removeEventListener('pointerdown', hide) }
+    window.addEventListener('pointerdown', hide)
+    return () => window.removeEventListener('pointerdown', hide)
   }, [])
 
-  // Sound toggle
-  const toggleSound = useCallback((e) => {
-    e.stopPropagation()
-    initAudio()
-    setSoundOn(prev => !prev)
-  }, [initAudio])
+  // Inject hint animation CSS
+  useEffect(() => {
+    const s = document.createElement('style')
+    s.innerHTML = '@keyframes fadeHint{from{opacity:0.35}to{opacity:0.9}}'
+    document.head.appendChild(s)
+    return () => { try { document.head.removeChild(s) } catch(e){} }
+  }, [])
 
-  // playHit — only fires when soundOn
   cpRef.playHit = useCallback(() => {
     if (!soundOn) return
     const ctx = window.__ac
     if (!ctx || ctx.state !== 'running') return
     try {
       const t = ctx.currentTime
-      // Layer 1: warm low thud
       const o1=ctx.createOscillator(), g1=ctx.createGain(), f1=ctx.createBiquadFilter()
       f1.type='lowpass'; f1.frequency.value=160; f1.Q.value=0.5
       o1.connect(f1); f1.connect(g1); g1.connect(ctx.destination)
@@ -296,14 +282,11 @@ export default function ZeroGravityLanding() {
       o1.frequency.setValueAtTime(90,t); o1.frequency.exponentialRampToValueAtTime(42,t+0.06)
       g1.gain.setValueAtTime(0.0,t); g1.gain.linearRampToValueAtTime(0.55,t+0.004); g1.gain.exponentialRampToValueAtTime(0.001,t+0.18)
       o1.start(t); o1.stop(t+0.20)
-      // Layer 2: soft click
       const o2=ctx.createOscillator(), g2=ctx.createGain()
-      o2.connect(g2); g2.connect(ctx.destination)
-      o2.type='sine'
+      o2.connect(g2); g2.connect(ctx.destination); o2.type='sine'
       o2.frequency.setValueAtTime(420,t); o2.frequency.exponentialRampToValueAtTime(180,t+0.03)
       g2.gain.setValueAtTime(0.0,t); g2.gain.linearRampToValueAtTime(0.22,t+0.002); g2.gain.exponentialRampToValueAtTime(0.001,t+0.06)
       o2.start(t); o2.stop(t+0.07)
-      // Layer 3: noise burst
       const bufSize=ctx.sampleRate*0.08, buf=ctx.createBuffer(1,bufSize,ctx.sampleRate)
       const data=buf.getChannelData(0)
       for(let i=0;i<bufSize;i++) data[i]=(Math.random()*2-1)*(1-i/bufSize)
@@ -315,135 +298,68 @@ export default function ZeroGravityLanding() {
     } catch(e) {}
   }, [soundOn])
 
-  // Activate physics on first tap/click
-  const handleStart = useCallback((e) => {
-    initAudio()
-    cpRef.active = true
-  }, [initAudio])
-
-  // Hide hint circle on first mouse movement
-  useEffect(() => {
-    const hide = () => { setHintVisible(false); window.removeEventListener('pointerdown', hide) }
-    window.addEventListener('pointerdown', hide)
-    return () => window.removeEventListener('pointerdown', hide)
-  }, [])
-
-  // Camera settings responsive
-  const camZ   = isMobile ? 14 : 11.5
-  const camFov = isMobile ? 52 : 42
-
-  // Inject hint animation CSS once
-  useEffect(() => {
-    const s = document.createElement('style')
-    s.innerHTML = '@keyframes fadeHint{from{opacity:0.4}to{opacity:1}}'
-    document.head.appendChild(s)
-    return () => document.head.removeChild(s)
-  }, [])
+  const handleStart = useCallback(() => { cpRef.active = true }, [])
 
   return (
     <div
       style={{
         position:'relative', width:'100vw', height:'100vh',
-        background: isMobile
-          ? '#DEDEDE'
-          : 'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
-        overflow:'hidden', cursor: isMobile ? 'default' : 'none', userSelect:'none',
+        background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
+        overflow:'hidden', cursor:'none', userSelect:'none',
       }}
       onPointerDown={handleStart}
     >
-      {/* TOP TEXT */}
-      <div style={{
-        position:'absolute', top:'11%', left:'50%',
-        transform:'translateX(-50%)', textAlign:'center',
-        fontFamily:'Georgia, serif',
-        fontSize: isMobile ? 'clamp(1.1rem,5vw,1.4rem)' : 'clamp(1.25rem,2.2vw,1.75rem)',
-        fontWeight:700, color:'#111111',
-        lineHeight:1.4, letterSpacing:'0.01em',
-        zIndex:10, pointerEvents:'none', whiteSpace:'nowrap',
-      }}>
+      <div style={{ position:'absolute',top:'11%',left:'50%',transform:'translateX(-50%)',textAlign:'center',fontFamily:'Georgia, serif',fontSize:'clamp(1.25rem,2.2vw,1.75rem)',fontWeight:700,color:'#111111',lineHeight:1.4,letterSpacing:'0.01em',zIndex:10,pointerEvents:'none',whiteSpace:'nowrap' }}>
         Take a breath.
       </div>
-
-      {/* BOTTOM TEXT */}
-      <div style={{
-        position:'absolute', bottom:'28%', left:'50%',
-        transform:'translateX(-50%)', textAlign:'center',
-        fontFamily:'Georgia, serif',
-        fontSize: isMobile ? 'clamp(1.0rem,4vw,1.2rem)' : 'clamp(1.1rem,1.9vw,1.48rem)',
-        fontWeight:700, color:'#111111',
-        lineHeight:1.4, letterSpacing:'0.01em',
-        zIndex:10, pointerEvents:'none', whiteSpace:'nowrap',
-      }}>
+      <div style={{ position:'absolute',bottom:'28%',left:'50%',transform:'translateX(-50%)',textAlign:'center',fontFamily:'Georgia, serif',fontSize:'clamp(1.1rem,1.9vw,1.48rem)',fontWeight:700,color:'#111111',lineHeight:1.4,letterSpacing:'0.01em',zIndex:10,pointerEvents:'none',whiteSpace:'nowrap' }}>
         Then meet me.
       </div>
-
-      {/* EMAIL */}
-      <div style={{
-        position:'absolute', bottom:'5%', right:'4%',
-        fontFamily:'Georgia, serif',
-        fontSize:'clamp(0.72rem,1.05vw,0.92rem)',
-        fontWeight:600, color:'#2A2A2A',
-        letterSpacing:'0.03em', zIndex:10,
-      }}>
+      <div style={{ position:'absolute',bottom:'5%',right:'4%',fontFamily:'Georgia, serif',fontSize:'clamp(0.72rem,1.05vw,0.92rem)',fontWeight:600,color:'#2A2A2A',letterSpacing:'0.03em',zIndex:10 }}>
         abhinavmittal33@gmail.com
       </div>
 
-      {/* SOUND TOGGLE — bottom-left, off by default */}
-      <button
-        onClick={toggleSound}
-        style={{
-          position:'absolute', bottom:'5%', left:'4%',
-          zIndex:20, background:'rgba(255,255,255,0.55)',
-          border:'1px solid rgba(0,0,0,0.15)',
-          borderRadius:'50%', width:'40px', height:'40px',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          cursor:'pointer', backdropFilter:'blur(6px)',
-          color: soundOn ? '#111' : '#888',
-          transition:'all 0.2s ease',
-          WebkitTapHighlightColor:'transparent',
-        }}
-        title={soundOn ? 'Mute' : 'Unmute'}
-      >
+      {/* Sound toggle */}
+      <button onClick={toggleSound} style={{ position:'absolute',bottom:'5%',left:'4%',zIndex:20,background:'rgba(255,255,255,0.55)',border:'1px solid rgba(0,0,0,0.15)',borderRadius:'50%',width:'40px',height:'40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:'blur(6px)',color:soundOn?'#111':'#888',transition:'all 0.2s ease' }}>
         {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
       </button>
 
-      {/* Hint circle — desktop only, fades on first mousemove */}
-      {!isMobile && hintVisible && (
-        <div style={{
-          position:'absolute', top:'50%', left:'50%',
-          transform:'translate(-50%,-50%)',
-          width:'clamp(110px,12vw,150px)', height:'clamp(110px,12vw,150px)',
-          borderRadius:'50%',
-          border:'1.5px solid rgba(20,20,20,0.28)',
-          display:'flex', alignItems:'center', justifyContent:'center',
-          pointerEvents:'none', zIndex:10,
-          animation:'fadeHint 1.8s ease-in-out infinite alternate',
-        }}>
-          <span style={{
-            fontFamily:'Georgia, serif',
-            fontSize:'clamp(0.62rem,0.9vw,0.78rem)',
-            color:'rgba(30,30,30,0.55)',
-            letterSpacing:'0.08em',
-            textTransform:'uppercase',
-          }}>click</span>
+      {/* Hint circle */}
+      {hintVisible && (
+        <div style={{ position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',width:'clamp(110px,12vw,150px)',height:'clamp(110px,12vw,150px)',borderRadius:'50%',border:'1.5px solid rgba(20,20,20,0.28)',display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none',zIndex:10,animation:'fadeHint 1.8s ease-in-out infinite alternate' }}>
+          <span style={{ fontFamily:'Georgia, serif',fontSize:'clamp(0.62rem,0.9vw,0.78rem)',color:'rgba(30,30,30,0.55)',letterSpacing:'0.08em',textTransform:'uppercase' }}>click</span>
         </div>
       )}
 
-      <Canvas
-        shadows={!isMobile}
-        camera={{position:[0,0,camZ], fov:camFov, near:0.1, far:120}}
-        gl={{antialias:!isMobile, alpha:false, powerPreference:'high-performance'}}
-        dpr={isMobile ? [1,1] : [1,2]}
-        style={{position:'absolute', inset:0}}
-      >
-        <color attach="background" args={[isMobile ? '#DEDEDE' : '#DADADA']}/>
+      <Canvas shadows camera={{position:[0,0,11.5],fov:42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1,2]} style={{position:'absolute',inset:0}}>
+        <color attach="background" args={['#DADADA']}/>
         <Lights/>
         <DecoSpheres cpRef={cpRef}/>
-        <SceneObjects cpRef={cpRef} mobile={isMobile}/>
+        <SceneObjects cpRef={cpRef}/>
         <MouseRing cpRef={cpRef}/>
       </Canvas>
     </div>
   )
+}
+
+// ── Root — routes mobile vs desktop ───────────────────────
+export default function ZeroGravityLanding() {
+  const [soundOn, setSoundOn] = useState(false)
+
+  const toggleSound = useCallback(() => {
+    if (!window.__ac) {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      window.__ac = ctx
+      ctx.resume()
+    }
+    setSoundOn(p => !p)
+  }, [])
+
+  if (IS_MOBILE) {
+    return <MobileLanding soundOn={soundOn} onSoundToggle={toggleSound} />
+  }
+
+  return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
 }
 
 CFG.filter(c=>c.path!=='GRADIENT').forEach(c=>useGLTF.preload(c.path))
