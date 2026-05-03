@@ -31,7 +31,7 @@ class Body {
     const PUSH=60, SPRING=0.05, DAMP=0.977, ADAMP=0.980
     // Mouse repulsion
     const cp = cpRef.current
-    if (cp) {
+    if (cp && cpRef.active) {
       const dx=this.pos.x-cp.x, dy=this.pos.y-cp.y, dz=this.pos.z-cp.z
       const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)
       const reach=cR+this.radius
@@ -224,6 +224,7 @@ function MouseRing({cpRef}) {
     return()=>window.removeEventListener('mousemove',onMove)
   },[camera,size])
   useFrame(()=>{
+    if(!cpRef.active) return
     current.current.lerp(target.current,0.16)
     cpRef.current=current.current.clone()
     if(ringRef.current) ringRef.current.position.copy(current.current)
@@ -321,6 +322,7 @@ export default function ZeroGravityLanding() {
     const ctx = new (window.AudioContext || window.webkitAudioContext)()
     window.__ac = ctx
     ctx.resume()
+    cpRef.active = true
     setStarted(true)
   }
 
@@ -390,54 +392,30 @@ export default function ZeroGravityLanding() {
         abhinavmittal33@gmail.com
       </div>
 
-      {/* Full-screen blur splash — blocks everything until clicked */}
+      {/* Full-screen blur splash */}
       {!started && (
         <div
           onClick={handleStart}
           style={{
             position:'absolute', inset:0, zIndex:100,
-            display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center',
+            display:'flex', alignItems:'center', justifyContent:'center',
             cursor:'pointer',
-            backdropFilter:'blur(22px)',
-            WebkitBackdropFilter:'blur(22px)',
-            background:'rgba(220,220,220,0.45)',
-            transition:'opacity 0.6s ease',
+            backdropFilter:'blur(20px)',
+            WebkitBackdropFilter:'blur(20px)',
+            background:'rgba(210,210,210,0.40)',
           }}
         >
-          {/* Outer ring — matches the in-scene white circle aesthetic */}
           <div style={{
-            width:'clamp(180px,22vw,260px)',
-            height:'clamp(180px,22vw,260px)',
-            borderRadius:'50%',
-            border:'1.5px solid rgba(20,20,20,0.30)',
-            display:'flex', flexDirection:'column',
-            alignItems:'center', justifyContent:'center',
-            gap:'10px',
-            background:'rgba(255,255,255,0.18)',
+            fontFamily:'"Palatino Linotype", Palatino, Georgia, serif',
+            fontSize:'clamp(1.6rem,3.5vw,2.8rem)',
+            fontWeight:400,
+            color:'#111',
+            letterSpacing:'0.04em',
+            textAlign:'center',
+            lineHeight:1.5,
+            userSelect:'none',
           }}>
-            <div style={{
-              fontFamily:'Georgia, serif',
-              fontSize:'clamp(1.2rem,2.2vw,1.7rem)',
-              fontWeight:700,
-              color:'#111111',
-              letterSpacing:'0.01em',
-              textAlign:'center',
-              lineHeight:1.3,
-            }}>
-              Take a breath.
-            </div>
-            <div style={{
-              fontFamily:'Georgia, serif',
-              fontSize:'clamp(0.72rem,1vw,0.88rem)',
-              color:'#333333',
-              letterSpacing:'0.08em',
-              textTransform:'uppercase',
-              opacity:0.65,
-              marginTop:'6px',
-            }}>
-              click to begin
-            </div>
+            click to start
           </div>
         </div>
       )}
