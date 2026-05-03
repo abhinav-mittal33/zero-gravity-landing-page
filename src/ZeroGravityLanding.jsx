@@ -377,7 +377,7 @@ function DesktopScene({ soundOn, toggleSound }) {
         abhinavmittal33@gmail.com
       </div>
 
-      {/* Sound button injected via DOM — see useEffect */}tton>
+      {/* Sound button injected via DOM — see useEffect */}
 
       {/* Hint circle */}
       {hintVisible && (
