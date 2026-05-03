@@ -390,7 +390,7 @@ export default function ZeroGravityLanding() {
         abhinavmittal33@gmail.com
       </div>
 
-      {/* Entry overlay — click unlocks audio, then disappears */}
+      {/* Full-screen blur splash — blocks everything until clicked */}
       {!started && (
         <div
           onClick={handleStart}
@@ -399,25 +399,45 @@ export default function ZeroGravityLanding() {
             display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center',
             cursor:'pointer',
-            background:'transparent',
+            backdropFilter:'blur(22px)',
+            WebkitBackdropFilter:'blur(22px)',
+            background:'rgba(220,220,220,0.45)',
+            transition:'opacity 0.6s ease',
           }}
         >
+          {/* Outer ring — matches the in-scene white circle aesthetic */}
           <div style={{
-            display:'flex', flexDirection:'column', alignItems:'center', gap:'12px',
-            padding:'32px 48px',
+            width:'clamp(180px,22vw,260px)',
+            height:'clamp(180px,22vw,260px)',
             borderRadius:'50%',
-            border:'1.5px solid rgba(0,0,0,0.18)',
-            background:'rgba(255,255,255,0.12)',
-            backdropFilter:'blur(4px)',
+            border:'1.5px solid rgba(20,20,20,0.30)',
+            display:'flex', flexDirection:'column',
+            alignItems:'center', justifyContent:'center',
+            gap:'10px',
+            background:'rgba(255,255,255,0.18)',
           }}>
             <div style={{
               fontFamily:'Georgia, serif',
-              fontSize:'clamp(0.85rem,1.2vw,1.05rem)',
-              color:'#1A1A1A',
-              letterSpacing:'0.06em',
+              fontSize:'clamp(1.2rem,2.2vw,1.7rem)',
+              fontWeight:700,
+              color:'#111111',
+              letterSpacing:'0.01em',
+              textAlign:'center',
+              lineHeight:1.3,
+            }}>
+              Take a breath.
+            </div>
+            <div style={{
+              fontFamily:'Georgia, serif',
+              fontSize:'clamp(0.72rem,1vw,0.88rem)',
+              color:'#333333',
+              letterSpacing:'0.08em',
               textTransform:'uppercase',
-              opacity:0.7,
-            }}>click to enter</div>
+              opacity:0.65,
+              marginTop:'6px',
+            }}>
+              click to begin
+            </div>
           </div>
         </div>
       )}
