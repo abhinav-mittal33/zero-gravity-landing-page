@@ -259,6 +259,65 @@ function DesktopScene({ soundOn, toggleSound }) {
     return () => window.removeEventListener('pointerdown', hide)
   }, [])
 
+  // Sound button via real DOM — bypasses all React event issues on mobile
+  useEffect(() => {
+    const btn = document.createElement('button')
+    const isMob = window.innerWidth < 768
+
+    Object.assign(btn.style, {
+      position: 'fixed',
+      top:    isMob ? '16px' : 'auto',
+      bottom: isMob ? 'auto' : '20px',
+      right:  isMob ? '16px' : 'auto',
+      left:   isMob ? 'auto' : '20px',
+      zIndex: '9999',
+      width:  isMob ? '52px' : '44px',
+      height: isMob ? '52px' : '44px',
+      borderRadius: '50%',
+      background: 'rgba(255,255,255,0.85)',
+      border: '1.5px solid rgba(0,0,0,0.18)',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '1.2rem',
+      boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+      WebkitTapHighlightColor: 'transparent',
+      touchAction: 'manipulation',
+      userSelect: 'none',
+    })
+
+    const updateIcon = () => {
+      btn.innerHTML = window.__soundOn
+        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>'
+    }
+    updateIcon()
+
+    const toggle = (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+      // AudioContext must be created here — inside real gesture handler
+      if (!window.__ac) {
+        window.__ac = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      window.__ac.resume()
+      window.__soundOn = !window.__soundOn
+      setSoundOn(!!window.__soundOn)
+      updateIcon()
+    }
+
+    btn.addEventListener('touchend', toggle, { passive: false })
+    btn.addEventListener('mousedown', toggle)
+    document.body.appendChild(btn)
+
+    return () => {
+      btn.removeEventListener('touchend', toggle)
+      btn.removeEventListener('mousedown', toggle)
+      document.body.removeChild(btn)
+    }
+  }, [])
+
   // Inject hint animation CSS
   useEffect(() => {
     const s = document.createElement('style')
@@ -318,10 +377,7 @@ function DesktopScene({ soundOn, toggleSound }) {
         abhinavmittal33@gmail.com
       </div>
 
-      {/* Sound toggle */}
-      <button onPointerDown={toggleSound} onTouchEnd={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
-        {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
-      </button>
+      {/* Sound button injected via DOM — see useEffect */}tton>
 
       {/* Hint circle */}
       {hintVisible && (
@@ -345,24 +401,7 @@ function DesktopScene({ soundOn, toggleSound }) {
 export default function ZeroGravityLanding() {
   const [soundOn, setSoundOn] = useState(false)
 
-  const toggleSound = useCallback((e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    // Dedupe — touchEnd fires after pointerDown, skip double-fire
-    const now = Date.now()
-    if (window.__lastToggle && now - window.__lastToggle < 300) return
-    window.__lastToggle = now
-    // Create/resume AudioContext in this gesture handler
-    if (!window.__ac) {
-      window.__ac = new (window.AudioContext || window.webkitAudioContext)()
-    }
-    window.__ac.resume().then(() => {
-      console.log('AudioContext state:', window.__ac.state)
-    })
-    window.__soundOn = !window.__soundOn
-    setSoundOn(window.__soundOn)
-    console.log('Sound toggled:', window.__soundOn)
-  }, [])
+  // sound handled by DOM button in useEffect
 
   return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
 }
