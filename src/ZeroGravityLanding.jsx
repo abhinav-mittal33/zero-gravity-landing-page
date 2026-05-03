@@ -316,7 +316,7 @@ function DesktopScene({ soundOn, toggleSound }) {
       </div>
 
       {/* Sound toggle */}
-      <button onClick={toggleSound} style={{ position:'absolute',bottom:'5%',left:'4%',zIndex:20,background:'rgba(255,255,255,0.55)',border:'1px solid rgba(0,0,0,0.15)',borderRadius:'50%',width:'40px',height:'40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:'blur(6px)',color:soundOn?'#111':'#888',transition:'all 0.2s ease' }}>
+      <button onClick={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
         {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
       </button>
 
