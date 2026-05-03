@@ -329,21 +329,55 @@ export default function ZeroGravityLanding() {
   // Assign playHit directly - called from Body.update via cpRef
   cpRef.playHit = useCallback(() => {
     const ctx = window.__ac
-    if (!ctx) return
-    if (ctx.state !== 'running') return
+    if (!ctx || ctx.state !== 'running') return
     try {
-      const o = ctx.createOscillator()
-      const g = ctx.createGain()
-      o.connect(g); g.connect(ctx.destination)
       const t = ctx.currentTime
-      o.type = 'triangle'
-      o.frequency.setValueAtTime(300, t)
-      o.frequency.exponentialRampToValueAtTime(80, t + 0.12)
-      g.gain.setValueAtTime(0.0, t)
-      g.gain.linearRampToValueAtTime(1.0, t + 0.003)
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
-      o.start(t); o.stop(t + 0.28)
-    } catch(e) { console.error('audio err', e) }
+
+      // ── Layer 1: soft body thud (low sine, very short) ──
+      // Like a padded object hitting a surface — warm, round
+      const o1 = ctx.createOscillator()
+      const g1 = ctx.createGain()
+      const f1 = ctx.createBiquadFilter()
+      f1.type = 'lowpass'; f1.frequency.value = 160; f1.Q.value = 0.5
+      o1.connect(f1); f1.connect(g1); g1.connect(ctx.destination)
+      o1.type = 'sine'
+      o1.frequency.setValueAtTime(90, t)
+      o1.frequency.exponentialRampToValueAtTime(42, t + 0.06)
+      g1.gain.setValueAtTime(0.0, t)
+      g1.gain.linearRampToValueAtTime(0.55, t + 0.004)
+      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.18)
+      o1.start(t); o1.stop(t + 0.20)
+
+      // ── Layer 2: soft click transient (higher sine, tiny) ──
+      // Adds the satisfying "tap" feel without being harsh
+      const o2 = ctx.createOscillator()
+      const g2 = ctx.createGain()
+      o2.connect(g2); g2.connect(ctx.destination)
+      o2.type = 'sine'
+      o2.frequency.setValueAtTime(420, t)
+      o2.frequency.exponentialRampToValueAtTime(180, t + 0.03)
+      g2.gain.setValueAtTime(0.0, t)
+      g2.gain.linearRampToValueAtTime(0.22, t + 0.002)
+      g2.gain.exponentialRampToValueAtTime(0.001, t + 0.06)
+      o2.start(t); o2.stop(t + 0.07)
+
+      // ── Layer 3: noise burst (white noise shaped) ──
+      // The "air" of impact — makes it feel physical not digital
+      const bufSize = ctx.sampleRate * 0.08
+      const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate)
+      const data = buf.getChannelData(0)
+      for (let i = 0; i < bufSize; i++) data[i] = (Math.random()*2-1) * (1 - i/bufSize)
+      const src = ctx.createBufferSource()
+      src.buffer = buf
+      const g3 = ctx.createGain()
+      const f3 = ctx.createBiquadFilter()
+      f3.type = 'bandpass'; f3.frequency.value = 280; f3.Q.value = 1.8
+      src.connect(f3); f3.connect(g3); g3.connect(ctx.destination)
+      g3.gain.setValueAtTime(0.12, t)
+      g3.gain.exponentialRampToValueAtTime(0.001, t + 0.08)
+      src.start(t); src.stop(t + 0.09)
+
+    } catch(e) {}
   }, [])
 
   return(
