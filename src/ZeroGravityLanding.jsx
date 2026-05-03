@@ -249,7 +249,7 @@ function SpeakerOff() {
 
 // ─── ROOT ────────────────────────────────────────────────
 // ── 3D Scene ──────────────────────────────────────────────
-function DesktopScene({ soundOn, toggleSound }) {
+function DesktopScene({ soundOn, setSoundOn }) {
   const cpRef       = useRef(new THREE.Vector3(999,999,0))
   const [hintVisible, setHintVisible] = useState(true)
 
@@ -403,7 +403,7 @@ export default function ZeroGravityLanding() {
 
   // sound handled by DOM button in useEffect
 
-  return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
+  return <DesktopScene soundOn={soundOn} setSoundOn={setSoundOn} />
 }
 
 CFG.filter(c=>c.path!=='GRADIENT').forEach(c=>useGLTF.preload(c.path))
