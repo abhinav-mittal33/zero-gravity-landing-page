@@ -268,7 +268,8 @@ function DesktopScene({ soundOn, toggleSound }) {
   cpRef.playHit = useCallback(() => {
     if (!soundOn) return
     const ctx = window.__ac
-    if (!ctx || ctx.state !== 'running') return
+    if (!ctx) return
+    if (ctx.state === 'suspended') ctx.resume()
     try {
       const t = ctx.currentTime
       const o1=ctx.createOscillator(), g1=ctx.createGain(), f1=ctx.createBiquadFilter()
@@ -316,7 +317,7 @@ function DesktopScene({ soundOn, toggleSound }) {
       </div>
 
       {/* Sound toggle */}
-      <button onClick={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',backdropFilter:'blur(6px)',WebkitBackdropFilter:'blur(6px)',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
+      <button onClick={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
         {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
       </button>
 
@@ -327,7 +328,7 @@ function DesktopScene({ soundOn, toggleSound }) {
         </div>
       )}
 
-      <Canvas shadows={window.innerWidth >= 768} camera={{position:[0,0, window.innerWidth < 768 ? 16 : 11.5],fov: window.innerWidth < 768 ? 55 : 42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1, window.devicePixelRatio]} style={{position:'absolute',inset:0}}>
+      <Canvas shadows={window.innerWidth >= 768} camera={{position:[0,0, window.innerWidth < 768 ? 16 : 11.5],fov: window.innerWidth < 768 ? 55 : 42,near:0.1,far:120}} gl={{antialias:true,alpha:false,powerPreference:'high-performance'}} dpr={[1, Math.min(window.devicePixelRatio, 2)]} style={{position:'absolute',inset:0}}>
         <color attach="background" args={['#DADADA']}/>
         <Lights/>
         <DecoSpheres cpRef={cpRef}/>
