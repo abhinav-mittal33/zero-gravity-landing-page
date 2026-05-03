@@ -319,7 +319,7 @@ function DesktopScene({ soundOn, toggleSound }) {
       </div>
 
       {/* Sound toggle */}
-      <button onClick={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
+      <button onPointerDown={toggleSound} onTouchEnd={toggleSound} style={{ position:'absolute', top: window.innerWidth < 768 ? '4%' : 'auto', bottom: window.innerWidth < 768 ? 'auto' : '5%', right: window.innerWidth < 768 ? '4%' : 'auto', left: window.innerWidth < 768 ? 'auto' : '4%', zIndex:20,background:'rgba(255,255,255,0.72)',border:'1.5px solid rgba(0,0,0,0.18)',borderRadius:'50%',width: window.innerWidth < 768 ? '48px' : '40px',height: window.innerWidth < 768 ? '48px' : '40px',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:soundOn?'#111':'#888',transition:'all 0.2s ease',boxShadow:'0 2px 12px rgba(0,0,0,0.12)',WebkitTapHighlightColor:'transparent',touchAction:'manipulation' }}>
         {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
       </button>
 
@@ -347,14 +347,21 @@ export default function ZeroGravityLanding() {
 
   const toggleSound = useCallback((e) => {
     e.stopPropagation()
-    // Create/resume AudioContext synchronously in this gesture handler
+    e.preventDefault()
+    // Dedupe — touchEnd fires after pointerDown, skip double-fire
+    const now = Date.now()
+    if (window.__lastToggle && now - window.__lastToggle < 300) return
+    window.__lastToggle = now
+    // Create/resume AudioContext in this gesture handler
     if (!window.__ac) {
       window.__ac = new (window.AudioContext || window.webkitAudioContext)()
     }
-    window.__ac.resume()
-    // Toggle global flag — no React closure issues
+    window.__ac.resume().then(() => {
+      console.log('AudioContext state:', window.__ac.state)
+    })
     window.__soundOn = !window.__soundOn
     setSoundOn(window.__soundOn)
+    console.log('Sound toggled:', window.__soundOn)
   }, [])
 
   return <DesktopScene soundOn={soundOn} toggleSound={toggleSound} />
