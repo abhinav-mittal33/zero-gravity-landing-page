@@ -69,7 +69,7 @@ function Model({ path, bodyRef, scale=1, baseRot=[0,0,0] }) {
     const c = scene.clone(true)
     c.traverse(n => {
       if (!n.isMesh) return
-      n.castShadow = true; n.receiveShadow = true
+      n.castShadow = !window.__mobile; n.receiveShadow = !window.__mobile
       if (!n.material) return
       n.material = n.material.clone()
       const col = n.material.color
@@ -201,7 +201,7 @@ const CFG=[
   { path:'GRADIENT',                home:[-2.6,-0.3,0.2],mass:1.8,radius:0.85, scale:1.0 },
 ]
 
-function SceneObjects({cpRef}) {
+function SceneObjects({cpRef, mobile=false}) {
   const bRefs=useRef(CFG.map(()=>({current:null})))
   const bodies=useMemo(()=>CFG.map(c=>new Body({home:c.home,mass:c.mass,radius:c.radius})),[])
   useEffect(()=>{bodies.forEach((b,i)=>bRefs.current[i].current=b)},[bodies])
@@ -210,7 +210,7 @@ function SceneObjects({cpRef}) {
     {CFG.map((cfg,i)=>cfg.path==='GRADIENT'
       ?<GradSphere key={i} bodyRef={bRefs.current[i]}/>
       :<Suspense key={i} fallback={null}>
-        <Model path={cfg.path} bodyRef={bRefs.current[i]} scale={cfg.scale} baseRot={cfg.baseRot||[0,0,0]}/>
+        <Model path={cfg.path} bodyRef={bRefs.current[i]} scale={cfg.scale*(mobile?0.62:1)} baseRot={cfg.baseRot||[0,0,0]}/>
       </Suspense>
     )}
   </>)
@@ -249,9 +249,11 @@ function SpeakerOff() {
 export default function ZeroGravityLanding() {
   const cpRef    = useRef(new THREE.Vector3(999,999,0))
   const [soundOn, setSoundOn] = useState(false)
+  const [hintVisible, setHintVisible] = useState(true)
 
   // Detect mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+  if (typeof window !== 'undefined') window.__mobile = isMobile
 
   // Audio init on first interaction
   const initAudio = useCallback(() => {
@@ -308,15 +310,32 @@ export default function ZeroGravityLanding() {
     cpRef.active = true
   }, [initAudio])
 
+  // Hide hint circle on first mouse movement
+  useEffect(() => {
+    const hide = () => { setHintVisible(false); window.removeEventListener('mousemove', hide) }
+    window.addEventListener('mousemove', hide)
+    return () => window.removeEventListener('mousemove', hide)
+  }, [])
+
   // Camera settings responsive
   const camZ   = isMobile ? 14 : 11.5
   const camFov = isMobile ? 52 : 42
+
+  // Inject hint animation CSS once
+  useEffect(() => {
+    const s = document.createElement('style')
+    s.innerHTML = '@keyframes fadeHint{from{opacity:0.4}to{opacity:1}}'
+    document.head.appendChild(s)
+    return () => document.head.removeChild(s)
+  }, [])
 
   return (
     <div
       style={{
         position:'relative', width:'100vw', height:'100vh',
-        background:'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
+        background: isMobile
+          ? '#DEDEDE'
+          : 'radial-gradient(ellipse 90% 70% at 50% 42%, #EBEBEB 0%, #C2C2C2 100%)',
         overflow:'hidden', cursor: isMobile ? 'default' : 'none', userSelect:'none',
       }}
       onPointerDown={handleStart}
@@ -377,6 +396,28 @@ export default function ZeroGravityLanding() {
         {soundOn ? <SpeakerOn/> : <SpeakerOff/>}
       </button>
 
+      {/* Hint circle — desktop only, fades on first mousemove */}
+      {!isMobile && hintVisible && (
+        <div style={{
+          position:'absolute', top:'50%', left:'50%',
+          transform:'translate(-50%,-50%)',
+          width:'clamp(110px,12vw,150px)', height:'clamp(110px,12vw,150px)',
+          borderRadius:'50%',
+          border:'1.5px solid rgba(20,20,20,0.28)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          pointerEvents:'none', zIndex:10,
+          animation:'fadeHint 1.8s ease-in-out infinite alternate',
+        }}>
+          <span style={{
+            fontFamily:'Georgia, serif',
+            fontSize:'clamp(0.62rem,0.9vw,0.78rem)',
+            color:'rgba(30,30,30,0.55)',
+            letterSpacing:'0.08em',
+            textTransform:'uppercase',
+          }}>move cursor</span>
+        </div>
+      )}
+
       <Canvas
         shadows={!isMobile}
         camera={{position:[0,0,camZ], fov:camFov, near:0.1, far:120}}
@@ -384,10 +425,10 @@ export default function ZeroGravityLanding() {
         dpr={isMobile ? [1,1] : [1,2]}
         style={{position:'absolute', inset:0}}
       >
-        <color attach="background" args={['#DADADA']}/>
+        <color attach="background" args={[isMobile ? '#DEDEDE' : '#DADADA']}/>
         <Lights/>
         <DecoSpheres cpRef={cpRef}/>
-        <SceneObjects cpRef={cpRef}/>
+        <SceneObjects cpRef={cpRef} mobile={isMobile}/>
         <MouseRing cpRef={cpRef}/>
       </Canvas>
     </div>
